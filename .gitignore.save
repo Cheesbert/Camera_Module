@@ -1,0 +1,18 @@
+# build artifacts
+build/
+*.o
+*.so
+*.a
+
+# SystemC / VP
+*.vcd
+*.log
+
+# editor junk
+*.swp
+*~
+.vscode/
+.idea/
+
+# binaries
+test_capture
