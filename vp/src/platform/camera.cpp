@@ -13,6 +13,7 @@ uint32_t* Camera::addr_to_reg(uint64_t addr) {
         case CAPTURE_REG_HEIGHT:  reg = &height;  break;
         case CAPTURE_REG_STATUS:  reg = &status;  break;
         case CAPTURE_REG_INTERVAL: reg = &interval; break;
+        case CAPTURE_REG_JPEG_SIZE: reg = &jpeg_size; break; 
         default: SC_REPORT_ERROR("Camera", "Invalid register address");
     }
     return reg; 
@@ -26,28 +27,19 @@ void Camera::capture_thread() {
         }
 
         if (cam_hardware) {
-            // 1. Grab frame from real webcam into our SystemC framebuffer
-            // Note: cam_hardware->grab returns the size of data copied
-            cam_hardware->grab(framebuffer.data(), framebuffer.size());
+            jpeg_size  = cam_hardware->grab(framebuffer.data(), framebuffer.size());
 
-            // 2. Simulate "Processing Time" (e.g., hardware ISP delay)
             wait(10, sc_core::SC_MS); 
-
-            // 3. Update Status: Set "Done" bit (bit 0)
             status |= 0x1; 
 
-            // 4. Trigger Interrupt
             irq.write(true);
             wait(1, sc_core::SC_US); // Pulse width
             irq.write(false);
         }
 
-        // If we are in "continuous mode" (control bit 0 is 1), 
-        // wait for the interval time before next frame
         if (interval > 0) {
             wait(sc_core::sc_time(interval, sc_core::SC_US));
         } else {
-            // Default throttle so simulation doesn't hang if interval is 0
             wait(33, sc_core::SC_MS); // ~30 FPS
         }
     }

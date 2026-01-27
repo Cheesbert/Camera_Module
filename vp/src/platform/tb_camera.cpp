@@ -1,4 +1,5 @@
 #include <systemc>
+#include <fstream>
 #include <tlm_utils/simple_target_socket.h>
 #include <tlm_utils/simple_initiator_socket.h>
 #include "camera.h"
@@ -46,32 +47,54 @@ SC_MODULE(CameraTB) {
         return value;
     }
 
-    void run() {
-        std::cout << "Testbench started!" << std::endl;
+    void saveFrame(uint32_t jpeg_size, std::string frameName) { 
+        std::ofstream ofs("test_frames/" + frameName + ".jpg", std::ios::binary);
 
-        // 1. Configure the camera (Address 0xFF0010 is Interval)
-        // Let's set it to 33ms (approx 30 FPS)
-        write32(0xFF0010, 33000); 
-
-        // 2. Start the camera (Address 0xFF0000 is Control)
-        write32(0xFF0000, 1);
-
-        for(int i = 0; i < 5; i++) {
-            // 3. Wait for the camera to signal an interrupt
-            wait(); // Wakes up when irq changes (because of sensitivity)
-
-            if (irq.read() == true) {
-                std::cout << "Frame " << i << " received!" << std::endl;
-
-                // 4. Read data from the camera framebuffer
-                // Address 0x0 is the start of the frame
-                uint32_t pixel = read32(0); 
-                
-                // 5. Reset status if needed
-                write32(0xFF000C, 0); 
-            }
+        if (!ofs) {
+            std::cerr << "Error opening file\n";
+            return;
         }
 
+        for (uint32_t addr = 0; addr < jpeg_size; addr += 4) {
+            uint32_t word = read32(addr);
+            ofs.write(reinterpret_cast<char*>(&word),
+                    std::min(4u, jpeg_size - addr));
+        }
+
+        ofs.close();
+            
+    }
+    
+    void run() {
+        // New run video capture 
+        uint32_t fps = 33333; 
+        uint32_t width = 640;
+        uint32_t height = 480; 
+        write32(Camera::CAPTURE_REG_INTERVAL, fps); 
+        write32(Camera::CAPTURE_REG_WIDTH, width); // Todo size handling
+        write32(Camera::CAPTURE_REG_HEIGHT, height);
+
+        uint8_t start = 1; 
+        uint8_t stop = 0;
+        uint32_t jpeg_size = 0; 
+
+        std::cout << "Start camera" << std::endl; 
+        write32(Camera::CAPTURE_REG_CONTROL, start);
+
+        uint32_t frames = 10; 
+        std::string frameName = "test_frame";
+        std::string saveName; 
+
+        for (int i = 0; i < frames; i++) {
+            wait(irq.posedge_event()); 
+            
+            std::cout << "Receive frame" << i << "at: " << sc_core::sc_time_stamp() << std::endl; 
+            saveName = frameName = std::to_string(i); 
+            jpeg_size = read32(Camera::CAPTURE_REG_JPEG_SIZE);
+            saveFrame(jpeg_size, saveName); 
+            std::cout << "Saved frame: " << frameName << " at " << sc_core::sc_time_stamp() << std::endl;
+        }
+        write32(0xFF000C, stop); 
         std::cout << "Simulation finished." << std::endl;
         sc_core::sc_stop();
     }

@@ -1,1 +1,1 @@
-add_subdirectory(plattform)
+add_subdirectory(platform)

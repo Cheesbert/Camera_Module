@@ -19,7 +19,8 @@ SC_MODULE(Camera) {
     uint32_t width   = 640;
     uint32_t height  = 480;
     uint32_t status  = 0;
-    uint32_t interval = 0; 
+    uint32_t interval = 0; // fps
+    uint32_t jpeg_size = 0; 
 
     std::vector<uint8_t> framebuffer;
     sc_core::sc_event capture_event;
@@ -30,7 +31,8 @@ SC_MODULE(Camera) {
         CAPTURE_REG_WIDTH   = 0xFF0004,
         CAPTURE_REG_HEIGHT  = 0xFF0008,
         CAPTURE_REG_STATUS  = 0xFF000C,
-        CAPTURE_REG_INTERVAL = 0xFF0010
+        CAPTURE_REG_INTERVAL = 0xFF0010,
+        CAPTURE_REG_JPEG_SIZE = 0xFF0014
     };
 
     SC_CTOR(Camera) : tsock("tsock"), irq("irq") {

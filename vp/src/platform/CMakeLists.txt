@@ -1,6 +1,9 @@
-add_executable(test_camera test_camera.cpp camera.cpp)
+add_executable(tb_camera tb_camera.cpp 
+camera.cpp)
 
-target_link_libraries(test_camera 
+add_executable(test_capture test_capture.cpp)
+
+target_link_libraries(tb_camera 
     PRIVATE 
         SystemC::systemc 
         v4l2 
