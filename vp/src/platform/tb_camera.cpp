@@ -41,7 +41,7 @@ SC_MODULE(CameraTB) {
     void write32(uint64_t addr, uint32_t value) {
         tlm::tlm_generic_payload trans; 
         sc_core::sc_time delay = sc_core::SC_ZERO_TIME; 
-
+        int c =1 ;
         trans.set_command(tlm::TLM_WRITE_COMMAND); // Writr Command
         trans.set_address(addr); // write to addr
         trans.set_data_length(4); 
