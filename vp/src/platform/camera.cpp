@@ -9,7 +9,7 @@ uint32_t* Camera::addr_to_reg(uint64_t addr) {
         case CAPTURE_REG_CONTROL: return &control; 
         case CAPTURE_REG_WIDTH:   return &width;  
         case CAPTURE_REG_HEIGHT:  return &height;  
-        case CAPTURE_REG_STATUS:  return &status;  
+        case CAPTURE_REG_STATUS:  return &status;   
         case CAPTURE_REG_INTERVAL: return &interval; 
         case CAPTURE_REG_JPEG_SIZE: return &jpeg_size; 
         default: return nullptr; 

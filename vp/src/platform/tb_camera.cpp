@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <cerrno>
+#include <array>
 
 #include <tlm_utils/simple_target_socket.h>
 #include <tlm_utils/simple_initiator_socket.h>
@@ -18,23 +19,28 @@ SC_MODULE(CameraTB) {
 
     template <typename T>
     void write(uint64_t addr, const T& value) {
-        static_assert(std::is_trivially_copyable_v<T>, "Data type must be trivial copyable");
+        static_assert(std::is_trivially_copyable<T>::value , "Data type must be trivial copyable"); // different C++17
         
         tlm::tlm_generic_payload trans; 
         sc_core::sc_time delay = sc_core::SC_ZERO_TIME; 
-        size_t size = sizeof(T)
+        
 
-        std::array<unsigned char, size> buffer{};
-        memcpy(buffer.data(), &value, size); // write source value to buffer
+        std::array<unsigned char, sizeof(T)> buffer{};
+        memcpy(buffer.data(), &value, sizeof(T)); // write source value to buffer
 
         trans.set_command(tlm::TLM_WRITE_COMMAND); // cmd what to do
         trans.set_address(addr);
-        trans.set_data_length(size); // number bytes transaction 4bytes 32bits 
-        trans.set_streaming_width(size);
+        trans.set_data_length(sizeof(T)); // number bytes transaction 4bytes 32bits 
+        trans.set_streaming_width(sizeof(T));
         trans.set_data_ptr(buffer.data());
         trans.set_response_status(tlm::TLM_INCOMPLETE_RESPONSE); // transaction prepared but not completed 
         
         isock->b_transport(trans, delay);
+
+        if (trans.is_response_error()) {
+            SC_REPORT_ERROR("Writer transaction failed", trans.get_response_string().c_str());
+        }
+        wait(delay);
 
     } 
 
@@ -52,6 +58,32 @@ SC_MODULE(CameraTB) {
 
         isock->b_transport(trans, delay); // Block until write has been done 
         assert(trans.get_response_status() == tlm::TLM_OK_RESPONSE); // Assert write complete
+    }
+    
+    template <typename T>
+    T read(uint64_t addr) {
+        static_assert(std::is_trivially_copyable<T>::value);
+        
+        tlm::tlm_generic_payload trans;
+        sc_core::sc_time delay = sc_core::SC_ZERO_TIME; 
+        T value; 
+        std::array<unsigned char, sizeof(T)> buffer{};
+
+        trans.set_command(tlm::TLM_READ_COMMAND);
+        trans.set_address(addr);
+        trans.set_data_length(sizeof(T));
+        trans.set_streaming_width(sizeof(T));
+        trans.set_data_ptr(buffer.data());
+        trans.set_response_status(tlm::TLM_INCOMPLETE_RESPONSE);
+
+        isock->b_transport(trans, delay);
+
+        if (trans.is_response_error()) {
+            SC_REPORT_ERROR("Read transaction failed", trans.get_response_string().c_str());
+        } else {
+            memcpy(&value, buffer.data(), sizeof(T));
+        }
+        return value; 
     }
 
     uint32_t read32(uint64_t addr) {
@@ -95,16 +127,16 @@ SC_MODULE(CameraTB) {
         uint32_t fps = 33333; 
         uint32_t width = 640;
         uint32_t height = 480; 
-        write32(Camera::CAPTURE_REG_INTERVAL, fps); 
-        write32(Camera::CAPTURE_REG_WIDTH, width); // Todo size handling
-        write32(Camera::CAPTURE_REG_HEIGHT, height);
+        write(Camera::CAPTURE_REG_INTERVAL, fps); 
+        write(Camera::CAPTURE_REG_WIDTH, width); // Todo size handling
+        write(Camera::CAPTURE_REG_HEIGHT, height);
 
-        uint8_t start = 1; 
-        uint8_t stop = 0;
+        uint32_t start = 1; 
+        uint32_t stop = 0;
         uint32_t jpeg_size = 0; 
 
         std::cout << "Start camera" << std::endl; 
-        write32(Camera::CAPTURE_REG_CONTROL, start);
+        write(Camera::CAPTURE_REG_CONTROL, start);
 
         uint32_t frames = 10; 
         std::string test_frames_dir = "test_frames"; 
@@ -122,11 +154,11 @@ SC_MODULE(CameraTB) {
             
             std::cout << "Received frame" << i << "at: " << sc_core::sc_time_stamp() << std::endl; 
             save_name = frame_name + std::to_string(i); 
-            jpeg_size = read32(Camera::CAPTURE_REG_JPEG_SIZE);
+            jpeg_size = read<uint32_t>(Camera::CAPTURE_REG_JPEG_SIZE);
             saveFrame(jpeg_size, save_name); 
             std::cout << "Saved frame: " << frame_name << " at " << sc_core::sc_time_stamp() << std::endl;
         }
-        write32(Camera::CAPTURE_REG_CONTROL, stop); 
+        write(Camera::CAPTURE_REG_CONTROL, stop); 
         std::cout << "Simulation finished." << std::endl;
         sc_core::sc_stop();
     }
