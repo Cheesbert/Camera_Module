@@ -49,7 +49,7 @@ void Camera::transport(tlm::tlm_generic_payload &trans, sc_core::sc_time &delay)
 
     std::cout << "TLM access addr=0x" << std::hex << addr << std::dec << std::endl;
 
-    if (addr < CAM_FRAME_BUFFER_SIZE) { // Framebuffer access
+    if (addr < CAM_FRAME_BUFFER_SIZE) { // framebuffer access
         if (cmd != tlm::TLM_READ_COMMAND || addr + len > CAM_FRAME_BUFFER_SIZE) {
             trans.set_response_status(tlm::TLM_ADDRESS_ERROR_RESPONSE);
             return;
